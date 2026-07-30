@@ -1,3 +1,125 @@
+Frame:
+  title: EIP-8141 frame
+  description: A single frame of a frame transaction, executed as a contract call.
+  type: object
+  additionalProperties: false
+  required:
+    - mode
+    - flags
+    - target
+    - gasLimit
+    - value
+    - data
+  properties:
+    mode:
+      title: mode
+      description: Frame execution mode. 0 = DEFAULT (execute as ENTRY_POINT), 1 = VERIFY (transaction validation), 2 = SENDER (execute as the sender).
+      $ref: '#/components/schemas/byte'
+    flags:
+      title: flags
+      description: Bitfield of frame/mode features. Bits 0-1 select the APPROVE scope; bit 2 is the atomic-batch flag (ATOMIC_BATCH_FLAG = 0x4).
+      $ref: '#/components/schemas/byte'
+    target:
+      title: target
+      description: Destination ("to") address of the frame.
+      $ref: '#/components/schemas/address'
+    gasLimit:
+      title: gas limit
+      description: The maximum gas allowed to be consumed by the frame.
+      $ref: '#/components/schemas/uint'
+    value:
+      title: value
+      description: Amount in wei transferred from the sender as part of the frame. Non-zero only for SENDER frames.
+      $ref: '#/components/schemas/uint'
+    data:
+      title: data
+      description: The calldata provided to the frame's top-level call.
+      $ref: '#/components/schemas/bytes'
+FrameSignature:
+  title: EIP-8141 signature entry
+  description: A validated signature available to the transaction, referenceable by VERIFY frames and by EVM execution.
+  type: object
+  additionalProperties: false
+  required:
+    - scheme
+    - signer
+    - msg
+    - signature
+  properties:
+    scheme:
+      title: scheme
+      description: The verification scheme used to interpret the raw signature bytes.
+      $ref: '#/components/schemas/byte'
+    signer:
+      title: signer
+      description: Scheme-dependent signer metadata. For SECP256K1 and P256 this is a 20-byte address.
+      $ref: '#/components/schemas/address'
+    msg:
+      title: msg
+      description: Either empty (indicating the canonical transaction signature hash) or an explicit 32-byte digest.
+      $ref: '#/components/schemas/bytes'
+    signature:
+      title: signature
+      description: Raw signature bytes, interpreted according to scheme.
+      $ref: '#/components/schemas/bytes'
+Transaction8141Unsigned:
+  type: object
+  title: EIP-8141 frame transaction.
+  description: A frame transaction (type 0x6) decomposes execution into an ordered list of frames. It has no top-level to/value/gas/input; those are per-frame. Authorization is carried by the in-body signatures list, so there is no outer secp256k1 signature.
+  required:
+    - type
+    - nonce
+    - maxPriorityFeePerGas
+    - maxFeePerGas
+    - frames
+    - signatures
+    - chainId
+  properties:
+    type:
+      title: type
+      type: string
+      pattern: ^0x6$
+    nonce:
+      title: nonce
+      $ref: '#/components/schemas/uint'
+    maxPriorityFeePerGas:
+      title: max priority fee per gas
+      description: Maximum fee per gas the sender is willing to pay to miners in wei
+      $ref: '#/components/schemas/uint'
+    maxFeePerGas:
+      title: max fee per gas
+      description: The maximum total fee per gas the sender is willing to pay (includes the network / base fee and miner / priority fee) in wei
+      $ref: '#/components/schemas/uint'
+    maxFeePerBlobGas:
+      title: max fee per blob gas
+      description: The maximum total fee per gas the sender is willing to pay for blob gas in wei. Relevant only when blobVersionedHashes is non-empty.
+      $ref: '#/components/schemas/uint'
+    gasPrice:
+      title: gas price
+      description: The effective gas price paid by the sender in wei. For transactions not yet included in a block, this value should be set equal to the max fee per gas. This field is DEPRECATED, please transition to using effectiveGasPrice in the receipt object going forward.
+      $ref: '#/components/schemas/uint'
+    frames:
+      title: frames
+      description: Ordered list of frames to execute.
+      type: array
+      items:
+        $ref: '#/components/schemas/Frame'
+    signatures:
+      title: signatures
+      description: List of validated signatures available to the transaction.
+      type: array
+      items:
+        $ref: '#/components/schemas/FrameSignature'
+    blobVersionedHashes:
+      title: blobVersionedHashes
+      description: List of versioned blob hashes associated with the transaction's EIP-4844 data blobs
+      type: array
+      items:
+        $ref: '#/components/schemas/hash32'
+    chainId:
+      title: chainId
+      description: Chain ID that this transaction is valid on
+      $ref: '#/components/schemas/uint'
 Transaction7702Unsigned:
   type: object
   title: EIP-7702 transaction
@@ -324,6 +446,7 @@ TransactionLegacyUnsigned:
       $ref: '#/components/schemas/uint'
 TransactionUnsigned:
   oneOf:
+    - $ref: '#/components/schemas/Transaction8141Unsigned'
     - $ref: '#/components/schemas/Transaction7702Unsigned'
     - $ref: '#/components/schemas/Transaction4844Unsigned'
     - $ref: '#/components/schemas/Transaction1559Unsigned'
@@ -449,8 +572,15 @@ TransactionLegacySigned:
         s:
           title: s
           $ref: '#/components/schemas/uint'
+Transaction8141Signed:
+  title: Signed 8141 Transaction
+  description: A frame transaction carries no outer secp256k1 signature; authorization is provided by the in-body signatures list, so the signed form adds no yParity/r/s.
+  type: object
+  allOf:
+    - $ref: '#/components/schemas/Transaction8141Unsigned'
 TransactionSigned:
   oneOf:
+    - $ref: '#/components/schemas/Transaction8141Signed'
     - $ref: '#/components/schemas/Transaction7702Signed'
     - $ref: '#/components/schemas/Transaction4844Signed'
     - $ref: '#/components/schemas/Transaction1559Signed'
